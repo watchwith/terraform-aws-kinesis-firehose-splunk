@@ -59,9 +59,14 @@ const AWS = require('aws-sdk');
  *
  * The result must be returned in a Promise.
  */
-function transformLogEvent(logEvent) {
-    return Promise.resolve(`${logEvent.message}\n`);
-}
+var transformLogEvent  = function(owner, group, stream) {
+    return function(logEvent) {
+       logEvent.owner = owner;
+       logEvent.logGroup = group;
+       logEvent.logStream = stream;
+       return Promise.resolve(JSON.stringify(logEvent) + '\n');
+    };
+};
 
 function putRecordsToFirehoseStream(streamName, records, client, resolve, reject, attemptsMade, maxAttempts) {
     client.putRecordBatch({
@@ -160,13 +165,30 @@ function getReingestionRecord(isSas, reIngestionRecord) {
     }
 }
 
+function sendVerbatim(recordId, message) {
+    const encoded = Buffer.from(message).toString('base64');
+    return {
+       recordId: recordId,
+       result: 'Ok',
+       data: encoded,
+    };
+}
+
+function isGzip(buf) {
+    return buf[0] === 0x1F && buf[1] === 0x8B && buf[2] === 0x08;
+}
+
 exports.handler = (event, context, callback) => {
     Promise.all(event.records.map(r => {
         const buffer = Buffer.from(r.data, 'base64');
 
         let decompressed;
         try {
-            decompressed = zlib.gunzipSync(buffer);
+            if isGzip(buffer) {
+               decompressed = zlib.gunzipSync(buffer);
+            } else {
+               decompressed = buffer;
+            }
         } catch (e) {
             return Promise.resolve({
                 recordId: r.recordId,
@@ -174,31 +196,38 @@ exports.handler = (event, context, callback) => {
             });
         }
 
-        const data = JSON.parse(decompressed);
-        // CONTROL_MESSAGE are sent by CWL to check if the subscription is reachable.
-        // They do not contain actual data.
-        if (data.messageType === 'CONTROL_MESSAGE') {
-            return Promise.resolve({
-                recordId: r.recordId,
-                result: 'Dropped',
-            });
-        } else if (data.messageType === 'DATA_MESSAGE') {
-            const promises = data.logEvents.map(transformLogEvent);
-            return Promise.all(promises)
-                .then(transformed => {
-                    const payload = transformed.reduce((a, v) => a + v, '');
-                    const encoded = Buffer.from(payload).toString('base64');
-                    return {
-                        recordId: r.recordId,
-                        result: 'Ok',
-                        data: encoded,
-                    };
-                });
-        } else {
-            return Promise.resolve({
-                recordId: r.recordId,
-                result: 'ProcessingFailed',
-            });
+        try {
+           const data = JSON.parse(decompressed);
+           if !('messageType' in data) {
+              return Promise.resolve(sendVerbatim(r.recordId, decompressed));
+           // CONTROL_MESSAGE are sent by CWL to check if the subscription is reachable.
+           // They do not contain actual data.
+           } else if (data.messageType === 'CONTROL_MESSAGE') {
+               return Promise.resolve({
+                   recordId: r.recordId,
+                   result: 'Dropped',
+               });
+           } else if (data.messageType === 'DATA_MESSAGE') {
+               const promises = data.logEvents.map(transformLogEvent(data.owner, data.logGroup, data.logStream));
+               return Promise.all(promises)
+                   .then(transformed => {
+                       const payload = transformed.reduce((a, v) => a + v, '');
+                       const encoded = Buffer.from(payload).toString('base64');
+                       return {
+                           recordId: r.recordId,
+                           result: 'Ok',
+                           data: encoded,
+                       };
+                   });
+           } else {
+               return Promise.resolve({
+                   recordId: r.recordId,
+                   result: 'ProcessingFailed',
+               });
+           }
+        } catch(e) {
+        // Message isn't JSON just send it verbatim
+           return Promise.resolve(sendVerbatim(r.recordId, decompressed));
         }
     })).then(recs => {
         const isSas = Object.prototype.hasOwnProperty.call(event, 'sourceKinesisStreamArn');

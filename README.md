@@ -13,12 +13,11 @@ You will use a KMS key of your choice to encrypt the token, as it is sensitive. 
 ##### Example
 ```
 module "kinesis_firehose" {
-  source = "disney/kinesis-firehose-splunk/aws"
+  source = "watchwith/terraform-aws-kinesis-firehose-splunk.git"
   aws_region = "us-east-1"
   arn_cloudwatch_logs_to_ship = "arn:aws:logs:us-east-1:<aws_account_number>:log-group:/test/test01:*"  
   name_cloudwatch_logs_to_ship = "/test/test01"
-  hec_token = "<KMS_encrypted_token>"
-  kms_key_arn = "arn:aws:kms:us-east-1:<aws_account_number:key/<kms_key_id>"
+  hec_token = "<SSM Path>"
   hec_url = "<Splunk_Kinesis_ingest_URL>"
   s3_bucket_name = "<mybucketname>"
 }
@@ -32,9 +31,7 @@ module "kinesis_firehose" {
 | region | The region of AWS you want to work in, such as us-west-2 or us-east-1 | string | - | yes |
 | arn_cloudwatch_logs_to_ship | arn of the CloudWatch Log Group that you want to ship to Splunk. | string | - | yes |
 | name_cloudwatch_logs_to_ship | name of the CloudWatch Log Group that you want to ship to Splunk. | string | - | yes |
-| hec_token | Splunk security token needed to submit data to Splunk vai HEC URL. Encyrpted with [this](https://www.terraform.io/docs/providers/aws/d/kms_secrets.html#example-usage) procedure using a KMS key of your choice. If encrypted with specific encryption_context please set that variable. | string | - | yes |
-| kms_key_arn | arn of the KMS key you used to encrypt the hec_token | string | - | yes |
-| encryption_context | aws_kms_secrets encryption context | map | `{}` | no |
+| hec_token | Splunk security token needed to submit data to Splunk via HEC URL. Stored in this SSM path.  | string | - | yes |
 | hec_url | Splunk Kinesis URL for submitting CloudWatch logs to splunk | string | - | yes |
 | hec_endpoint_type | The Splunk HEC endpoint type. | string | `Raw` | no |
 | nodejs_runtime | Runtime version of nodejs for Lambda function | string | `nodejs12.x` | no |

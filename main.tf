@@ -14,8 +14,8 @@ resource "aws_kinesis_firehose_delivery_stream" "kinesis_firehose" {
   }
 
   splunk_configuration {
-    hec_endpoint               = var.hec_url
-    hec_token                  = data.aws_kms_secrets.splunk_hec_token.plaintext["hec_token"]
+    hec_endpoint               = data.aws_ssm_parameter.hec_url.value
+    hec_token                  = data.aws_ssm_parameter.hec_token.value
     hec_acknowledgment_timeout = var.hec_acknowledgment_timeout
     hec_endpoint_type          = var.hec_endpoint_type
     s3_backup_mode             = var.s3_backup_mode
@@ -87,19 +87,19 @@ resource "aws_cloudwatch_log_stream" "kinesis_logs" {
   log_group_name = aws_cloudwatch_log_group.kinesis_logs.name
 }
 
-# handle the sensitivity of the hec_token variable
-data "aws_kms_secrets" "splunk_hec_token" {
-  secret {
-    name    = "hec_token"
-    payload = var.hec_token
+data "aws_ssm_parameter" "hec_token" {
+  name   = "/shared-${var.region}/splunk/${var.hec_token}"
+  with_decryption = true
+}
 
-    context = var.encryption_context
-  }
+data "aws_ssm_parameter" "hec_url" {
+  name = "/shared-${var.region}/splunk/${var.hec_url}"
+  with_decryption = true
 }
 
 # Role for the transformation Lambda function attached to the kinesis stream
 resource "aws_iam_role" "kinesis_firehose_lambda" {
-  name        = var.kinesis_firehose_lambda_role_name
+  name        = "${var.kinesis_firehose_lambda_role_name}-${var.region}"
   description = "Role for Lambda function to transformation CloudWatch logs into Splunk compatible format"
 
   assume_role_policy = <<POLICY
@@ -117,8 +117,8 @@ resource "aws_iam_role" "kinesis_firehose_lambda" {
 }
 POLICY
 
+  permissions_boundary = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/BasicRole_Boundary"
 
-  tags = var.tags
 }
 
 data "aws_iam_policy_document" "lambda_policy_doc" {
@@ -182,7 +182,7 @@ data "aws_iam_policy_document" "lambda_policy_doc" {
 }
 
 resource "aws_iam_policy" "lambda_transform_policy" {
-  name   = var.lambda_iam_policy_name
+  name   = "${var.lambda_iam_policy_name}-${var.region}"
   policy = data.aws_iam_policy_document.lambda_policy_doc.json
 }
 
@@ -214,9 +214,9 @@ data "archive_file" "lambda_function" {
   output_path = "${path.module}/files/kinesis-firehose-cloudwatch-logs-processor.zip"
 }
 
-# Role for Kenisis Firehose
+# Role for Kinesis Firehose
 resource "aws_iam_role" "kinesis_firehose" {
-  name        = var.kinesis_firehose_role_name
+  name        = "${var.kinesis_firehose_role_name}-${var.region}"
   description = "IAM Role for Kenisis Firehose"
 
   assume_role_policy = <<POLICY
@@ -235,7 +235,7 @@ resource "aws_iam_role" "kinesis_firehose" {
 POLICY
 
 
-  tags = var.tags
+  permissions_boundary = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/BasicRole_Boundary"
 }
 
 data "aws_iam_policy_document" "kinesis_firehose_policy_document" {
@@ -283,7 +283,7 @@ data "aws_iam_policy_document" "kinesis_firehose_policy_document" {
 }
 
 resource "aws_iam_policy" "kinesis_firehose_iam_policy" {
-  name   = var.kinesis_firehose_iam_policy_name
+  name   = "${var.kinesis_firehose_iam_policy_name}-${var.region}"
   policy = data.aws_iam_policy_document.kinesis_firehose_policy_document.json
 }
 
@@ -293,7 +293,7 @@ resource "aws_iam_role_policy_attachment" "kenisis_fh_role_attachment" {
 }
 
 resource "aws_iam_role" "cloudwatch_to_firehose_trust" {
-  name        = var.cloudwatch_to_firehose_trust_iam_role_name
+  name        = "${var.cloudwatch_to_firehose_trust_iam_role_name}-${var.region}"
   description = "Role for CloudWatch Log Group subscription"
 
   assume_role_policy = <<ROLE
@@ -310,6 +310,7 @@ resource "aws_iam_role" "cloudwatch_to_firehose_trust" {
   "Version": "2012-10-17"
 }
 ROLE
+  permissions_boundary = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/BasicRole_Boundary"
 
 }
 
@@ -334,13 +335,13 @@ data "aws_iam_policy_document" "cloudwatch_to_fh_access_policy" {
     effect = "Allow"
 
     resources = [
-      aws_iam_role.cloudwatch_to_firehose_trust.arn,
+      aws_iam_role.cloudwatch_to_firehose_trust.arn
     ]
   }
 }
 
 resource "aws_iam_policy" "cloudwatch_to_fh_access_policy" {
-  name        = var.cloudwatch_to_fh_access_policy_name
+  name        = "${var.cloudwatch_to_fh_access_policy_name}-${var.region}"
   description = "Cloudwatch to Firehose Subscription Policy"
   policy      = data.aws_iam_policy_document.cloudwatch_to_fh_access_policy.json
 }
@@ -358,3 +359,4 @@ resource "aws_cloudwatch_log_subscription_filter" "cloudwatch_log_filter" {
   filter_pattern  = var.subscription_filter_pattern
 }
 
+data "aws_caller_identity" "current" {}
