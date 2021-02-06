@@ -12,9 +12,9 @@ variable "hec_token" {
   default = "hec_token"
 }
 
-variable "nodejs_runtime" {
+variable "runtime" {
   description = "Runtime version of nodejs for Lambda function"
-  default     = "nodejs12.x"
+  default     = "python3.8"
 }
 
 variable "firehose_name" {
@@ -97,12 +97,9 @@ variable "kinesis_firehose_role_name" {
   default     = "CustomerManaged_KinesisFirehoseRole"
 }
 
-variable "arn_cloudwatch_logs_to_ship" {
-  description = "arn of the CloudWatch Log Group that you want to ship to Splunk."
-}
-
 variable "name_cloudwatch_logs_to_ship" {
   description = "name of the CloudWatch Log Group that you want to ship to Splunk."
+  type = list
 }
 
 variable "lambda_function_name" {
@@ -137,11 +134,12 @@ variable "cloudwatch_to_fh_access_policy_name" {
 
 variable "cloudwatch_log_filter_name" {
   description = "Name of Log Filter for CloudWatch Log subscription to Kinesis Firehose"
-  default     = "KinesisSubscriptionFilter"
+  default     = "Splunk"
 }
 
 variable "subscription_filter_pattern" {
   description = "Filter pattern for the CloudWatch Log Group subscription to the Kinesis Firehose. See [this](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/FilterAndPatternSyntax.html) for filter pattern info."
-  default     = "" # nothing is being filtered
+  type = list
+  default     = [] # nothing is being filtered
 }
 

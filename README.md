@@ -72,3 +72,14 @@ _Author_
 _Reviewers_
 - Ian Ward
 - Justice London
+
+
+### Current Environments
+#### Dev
+```shell
+terraform plan -out terraform.tfplan -var region=us-west-2 -var s3_backup_mode=AllEvents \
+               -var 'tags={"Environment":"us-west-2","git-repo":"terraform-aws-kinesis-firehose-splunk"}' \
+               -var s3_bucket_name=ww-us-west-2-splunk-logs-backup \
+               -var 'name_cloudwatch_logs_to_ship=["/ww/dev/actions-api"]'
+terraform apply terraform.tfplan
+```

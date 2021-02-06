@@ -1,4 +1,4 @@
-# Kenisis firehose stream
+# Kinesis firehose stream
 # Record Transformation Required, called "processing_configuration" in Terraform
 resource "aws_kinesis_firehose_delivery_stream" "kinesis_firehose" {
   name        = var.firehose_name
@@ -121,15 +121,18 @@ POLICY
 
 }
 
+data "aws_cloudwatch_log_group" "logs" {
+  count = length(var.name_cloudwatch_logs_to_ship)
+  name = element(var.name_cloudwatch_logs_to_ship, count.index)
+}
+
 data "aws_iam_policy_document" "lambda_policy_doc" {
   statement {
     actions = [
       "logs:GetLogEvents",
     ]
 
-    resources = [
-      var.arn_cloudwatch_logs_to_ship,
-    ]
+    resources = data.aws_cloudwatch_log_group.logs.*.arn
 
     effect = "Allow"
   }
@@ -199,18 +202,19 @@ resource "aws_lambda_function" "firehose_lambda_transform" {
   filename         = data.archive_file.lambda_function.output_path
   role             = aws_iam_role.kinesis_firehose_lambda.arn
   handler          = "kinesis-firehose-cloudwatch-logs-processor.handler"
+  memory_size = 160
   source_code_hash = data.archive_file.lambda_function.output_base64sha256
-  runtime          = var.nodejs_runtime
+  runtime          = var.runtime
   timeout          = var.lambda_function_timeout
 
   tags = var.tags
 }
 
-# kinesis-firehose-cloudwatch-logs-processor.js was taken by copy/paste from the AWS UI.  It is predefined blueprint
+# kinesis-firehose-cloudwatch-logs-processor.pys was taken by copy/paste from the AWS UI.  It is predefined blueprint
 # code supplied to AWS by Splunk.
 data "archive_file" "lambda_function" {
   type        = "zip"
-  source_file = "${path.module}/files/kinesis-firehose-cloudwatch-logs-processor.js"
+  source_file = "${path.module}/files/kinesis-firehose-cloudwatch-logs-processor.py"
   output_path = "${path.module}/files/kinesis-firehose-cloudwatch-logs-processor.zip"
 }
 
@@ -352,11 +356,12 @@ resource "aws_iam_role_policy_attachment" "cloudwatch_to_fh" {
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "cloudwatch_log_filter" {
-  name            = var.cloudwatch_log_filter_name
+  count = length(var.name_cloudwatch_logs_to_ship)
+  name            = "${element(var.name_cloudwatch_logs_to_ship, count.index)}-${var.cloudwatch_log_filter_name}"
   role_arn        = aws_iam_role.cloudwatch_to_firehose_trust.arn
   destination_arn = aws_kinesis_firehose_delivery_stream.kinesis_firehose.arn
-  log_group_name  = var.name_cloudwatch_logs_to_ship
-  filter_pattern  = var.subscription_filter_pattern
+  log_group_name  = element(var.name_cloudwatch_logs_to_ship, count.index)
+  filter_pattern  = length(var.subscription_filter_pattern) > count.index ? element(var.subscription_filter_pattern, count.index) : ""
 }
 
 data "aws_caller_identity" "current" {}
