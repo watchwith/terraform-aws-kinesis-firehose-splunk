@@ -221,7 +221,7 @@ data "archive_file" "lambda_function" {
 # Role for Kinesis Firehose
 resource "aws_iam_role" "kinesis_firehose" {
   name        = "${var.kinesis_firehose_role_name}-${var.region}"
-  description = "IAM Role for Kenisis Firehose"
+  description = "IAM Role for Kinesis Firehose"
 
   assume_role_policy = <<POLICY
 {
@@ -291,7 +291,7 @@ resource "aws_iam_policy" "kinesis_firehose_iam_policy" {
   policy = data.aws_iam_policy_document.kinesis_firehose_policy_document.json
 }
 
-resource "aws_iam_role_policy_attachment" "kenisis_fh_role_attachment" {
+resource "aws_iam_role_policy_attachment" "kinesis_fh_role_attachment" {
   role       = aws_iam_role.kinesis_firehose.name
   policy_arn = aws_iam_policy.kinesis_firehose_iam_policy.arn
 }

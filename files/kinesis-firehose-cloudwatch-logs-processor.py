@@ -98,7 +98,7 @@ def processRecords(records):
             data = json.loads(doc)
             if "messageType" not in data:
                 yield {
-                    "data": base64.b64encode(doc.encode("utf-8")),
+                    "data": base64.b64encode(doc.encode("utf-8") + "\n"),
                     "result": "Ok",
                     "recordId": recId,
                 }
@@ -128,7 +128,7 @@ def processRecords(records):
             message = json.dumps(plaintext)
             logger.info("plaintext: " + message)
             yield {
-                "data": base64.b64encode(message.encode("utf-8")),
+                "data": base64.b64encode(message.encode("utf-8") + "\n"),
                 "result": "Ok",
                 "recordId": recId,
             }
