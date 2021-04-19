@@ -79,14 +79,18 @@ def transformLogEvent(log_event, owner, group, stream):
     log_event = addTimestamp(log_event)
     return json.dumps(log_event) + "\n"
 
+
 def addTimestamp(event):
-    if 'timestamp' not in event:
-        event["timestamp"] = (
-            datetime.datetime.utcnow()
-                .replace(tzinfo=datetime.timezone.utc)
-                .isoformat()
-        )
+    if "timestamp" not in event:
+        ts = {
+            "timestamp": datetime.datetime.utcnow()
+            .replace(tzinfo=datetime.timezone.utc)
+            .strftime("%Y-%m-%dT%X.%fZ")
+        }
+        ts.update(event)
+        event = ts
     return event
+
 
 def processRecords(records):
     for r in records:
