@@ -113,14 +113,14 @@ def processRecords(records):
                 else:
                     yield {"result": "ProcessingFailed", "recordId": recId}
             elif "container_id" in data and "log" in data:
-                    logdata = json.loads(data["log"])
-                    data.update(logdata)
-                    del data["log"]
-                    yield {
-                        "data": base64.b64encode((json.dumps(data) + "\n").encode("utf-8")),
-                        "result": "Ok",
-                        "recordId": recId,
-                    }
+                logdata = json.loads(data["log"])
+                data.update(logdata)
+                del data["log"]
+                yield {
+                    "data": base64.b64encode((json.dumps(data) + "\n").encode("utf-8")),
+                    "result": "Ok",
+                    "recordId": recId,
+                }
             else:
                 yield {
                     "data": base64.b64encode((doc + "\n").encode("utf-8")),
