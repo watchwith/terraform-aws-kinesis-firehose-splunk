@@ -96,27 +96,38 @@ def processRecords(records):
         """
         try:
             data = json.loads(doc)
-            if "messageType" not in data:
+            if "messageType" in data:
+                if data["messageType"] == "CONTROL_MESSAGE":
+                    yield {"result": "Dropped", "recordId": recId}
+                elif data["messageType"] == "DATA_MESSAGE":
+                    message = "".join(
+                        [
+                            transformLogEvent(
+                                e, data["owner"], data["logGroup"], data["logStream"]
+                            )
+                            for e in data["logEvents"]
+                        ]
+                    )
+                    message = base64.b64encode(message.encode("utf-8"))
+                    yield {"data": message, "result": "Ok", "recordId": recId}
+                else:
+                    yield {"result": "ProcessingFailed", "recordId": recId}
+            elif "container_id" in data and "log" in data:
+                logdata = json.loads(data["log"])
+                data.update(logdata)
+                del data["log"]
+                yield {
+                    "data": base64.b64encode((json.dumps(data) + "\n").encode("utf-8")),
+                    "result": "Ok",
+                    "recordId": recId,
+                }
+            else:
                 yield {
                     "data": base64.b64encode((doc + "\n").encode("utf-8")),
                     "result": "Ok",
                     "recordId": recId,
                 }
-            elif data["messageType"] == "CONTROL_MESSAGE":
-                yield {"result": "Dropped", "recordId": recId}
-            elif data["messageType"] == "DATA_MESSAGE":
-                message = "".join(
-                    [
-                        transformLogEvent(
-                            e, data["owner"], data["logGroup"], data["logStream"]
-                        )
-                        for e in data["logEvents"]
-                    ]
-                )
-                message = base64.b64encode(message.encode("utf-8"))
-                yield {"data": message, "result": "Ok", "recordId": recId}
-            else:
-                yield {"result": "ProcessingFailed", "recordId": recId}
+
         except json.decoder.JSONDecodeError:
             plaintext = {}
             plaintext["timestamp"] = (
