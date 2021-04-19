@@ -76,8 +76,17 @@ def transformLogEvent(log_event, owner, group, stream):
     log_event["owner"] = owner
     log_event["log_group"] = group
     log_event["log_stream"] = stream
+    log_event = addTimestamp(log_event)
     return json.dumps(log_event) + "\n"
 
+def addTimestamp(event):
+    if 'timestamp' not in event:
+        event["timestamp"] = (
+            datetime.datetime.utcnow()
+                .replace(tzinfo=datetime.timezone.utc)
+                .isoformat()
+        )
+    return event
 
 def processRecords(records):
     for r in records:
@@ -96,45 +105,9 @@ def processRecords(records):
         """
         try:
             data = json.loads(doc)
-            if "messageType" in data:
-                if data["messageType"] == "CONTROL_MESSAGE":
-                    yield {"result": "Dropped", "recordId": recId}
-                elif data["messageType"] == "DATA_MESSAGE":
-                    message = "".join(
-                        [
-                            transformLogEvent(
-                                e, data["owner"], data["logGroup"], data["logStream"]
-                            )
-                            for e in data["logEvents"]
-                        ]
-                    )
-                    message = base64.b64encode(message.encode("utf-8"))
-                    yield {"data": message, "result": "Ok", "recordId": recId}
-                else:
-                    yield {"result": "ProcessingFailed", "recordId": recId}
-            elif "container_id" in data and "log" in data:
-                logdata = json.loads(data["log"])
-                data.update(logdata)
-                del data["log"]
-                yield {
-                    "data": base64.b64encode((json.dumps(data) + "\n").encode("utf-8")),
-                    "result": "Ok",
-                    "recordId": recId,
-                }
-            else:
-                yield {
-                    "data": base64.b64encode((doc + "\n").encode("utf-8")),
-                    "result": "Ok",
-                    "recordId": recId,
-                }
-
         except json.decoder.JSONDecodeError:
             plaintext = {}
-            plaintext["timestamp"] = (
-                datetime.datetime.utcnow()
-                .replace(tzinfo=datetime.timezone.utc)
-                .isoformat()
-            )
+            plaintext = addTimestamp(plaintext)
             plaintext["message"] = doc
             message = json.dumps(plaintext)
             logger.info("plaintext: " + message)
@@ -143,7 +116,40 @@ def processRecords(records):
                 "result": "Ok",
                 "recordId": recId,
             }
-            pass
+            continue
+
+        if "messageType" in data:
+            if data["messageType"] == "CONTROL_MESSAGE":
+                yield {"result": "Dropped", "recordId": recId}
+            elif data["messageType"] == "DATA_MESSAGE":
+                message = "".join(
+                    [
+                        transformLogEvent(
+                            e, data["owner"], data["logGroup"], data["logStream"]
+                        )
+                        for e in data["logEvents"]
+                    ]
+                )
+                message = base64.b64encode(message.encode("utf-8"))
+                yield {"data": message, "result": "Ok", "recordId": recId}
+            else:
+                yield {"result": "ProcessingFailed", "recordId": recId}
+        elif "container_id" in data and "log" in data:
+            try:
+                logdata = json.loads(data["log"])
+                data.update(logdata)
+                del data["log"]
+            except json.decoder.JSONDecodeError:
+                pass
+            data = addTimestamp(data)
+            message = json.dumps(data) + "\n"
+            message = base64.b64encode(message.encode("utf-8"))
+            yield {"data": message, "result": "Ok", "recordId": recId}
+        else:
+            data = addTimestamp(data)
+            message = json.dumps(data) + "\n"
+            message = base64.b64encode(message.encode("utf-8"))
+            yield {"data": message, "result": "Ok", "recordId": recId}
 
 
 def putRecordsToFirehoseStream(streamName, records, client, attemptsMade, maxAttempts):
