@@ -17,7 +17,7 @@ variable "runtime" {
   default     = "python3.8"
 }
 
-variable "firehose_name" {
+variable "firehose_suffix" {
   description = "Name of the Kinesis Firehose"
   default     = "kinesis-firehose-to-splunk"
 }

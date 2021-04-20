@@ -1,7 +1,7 @@
 # Kinesis firehose stream
 # Record Transformation Required, called "processing_configuration" in Terraform
 resource "aws_kinesis_firehose_delivery_stream" "kinesis_firehose" {
-  name        = var.firehose_name
+  name        = local.firehose_name
   destination = "splunk"
 
   s3_configuration {
@@ -75,7 +75,7 @@ resource "aws_s3_bucket_public_access_block" "kinesis_firehose_s3_bucket" {
 
 # Cloudwatch logging group for Kinesis Firehose
 resource "aws_cloudwatch_log_group" "kinesis_logs" {
-  name              = "/aws/kinesisfirehose/${var.firehose_name}"
+  name              = "/aws/kinesisfirehose/${local.firehose_name}"
   retention_in_days = var.cloudwatch_log_retention
 
   tags = var.tags
@@ -370,3 +370,7 @@ resource "aws_cloudwatch_log_subscription_filter" "cloudwatch_log_filter" {
 }
 
 data "aws_caller_identity" "current" {}
+
+locals {
+  firehose_name = "${var.region}-${var.firehose_suffix}"
+}
