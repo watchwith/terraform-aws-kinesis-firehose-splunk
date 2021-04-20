@@ -17,7 +17,7 @@ resource "aws_kinesis_firehose_delivery_stream" "kinesis_firehose" {
     hec_endpoint               = data.aws_ssm_parameter.hec_url.value
     hec_token                  = data.aws_ssm_parameter.hec_token.value
     hec_acknowledgment_timeout = var.hec_acknowledgment_timeout
-    hec_endpoint_type          = var.hec_endpoint_type
+    hec_endpoint_type          = data.aws_ssm_parameter.hec_endpoint_type.value
     s3_backup_mode             = var.s3_backup_mode
 
     processing_configuration {
@@ -89,6 +89,11 @@ resource "aws_cloudwatch_log_stream" "kinesis_logs" {
 
 data "aws_ssm_parameter" "hec_token" {
   name   = "/shared-${var.region}/splunk/${var.hec_token}"
+  with_decryption = true
+}
+
+data "aws_ssm_parameter" "hec_endpoint_type" {
+  name   = "/shared-${var.region}/splunk/${var.hec_endpoint_type}"
   with_decryption = true
 }
 
