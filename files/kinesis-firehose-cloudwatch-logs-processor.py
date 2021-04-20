@@ -77,6 +77,7 @@ def transformLogEvent(log_event, owner, group, stream):
     log_event["log_group"] = group
     log_event["log_stream"] = stream
     log_event = addTimestamp(log_event)
+    log_event = addEventWrapper(log_event)
     return json.dumps(log_event) + "\n"
 
 
@@ -84,13 +85,17 @@ def addTimestamp(event):
     if "timestamp" not in event:
         ts = {
             "timestamp": datetime.datetime.utcnow()
-            .replace(tzinfo=datetime.timezone.utc)
-            .strftime("%Y-%m-%dT%X.%fZ")
+                .replace(tzinfo=datetime.timezone.utc)
+                .strftime("%Y-%m-%dT%X.%fZ")
         }
         ts.update(event)
         event = ts
     return event
 
+def addEventWrapper(event):
+    ev = {}
+    ev['event'] = event
+    return ev
 
 def processRecords(records):
     for r in records:
@@ -113,7 +118,7 @@ def processRecords(records):
             plaintext = {}
             plaintext = addTimestamp(plaintext)
             plaintext["message"] = doc
-            message = json.dumps(plaintext)
+            message = json.dumps(addEventWrapper(plaintext))
             logger.info("plaintext: " + message)
             yield {
                 "data": base64.b64encode((message + "\n").encode("utf-8")),
@@ -145,13 +150,11 @@ def processRecords(records):
                 del data["log"]
             except json.decoder.JSONDecodeError:
                 pass
-            data = addTimestamp(data)
-            message = json.dumps(data) + "\n"
+            message = json.dumps(addEventWrapper(data)) + "\n"
             message = base64.b64encode(message.encode("utf-8"))
             yield {"data": message, "result": "Ok", "recordId": recId}
         else:
-            data = addTimestamp(data)
-            message = json.dumps(data) + "\n"
+            message = json.dumps(addEventWrapper(data)) + "\n"
             message = base64.b64encode(message.encode("utf-8"))
             yield {"data": message, "result": "Ok", "recordId": recId}
 
@@ -275,6 +278,7 @@ def handler(event, context):
     totalRecordsToBeReingested = 0
 
     for idx, rec in enumerate(records):
+        logger.debug("Record: %s" % (rec))
         if rec["result"] != "Ok":
             continue
         projectedSize += len(rec["data"]) + len(rec["recordId"])
