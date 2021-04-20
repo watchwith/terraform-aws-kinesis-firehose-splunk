@@ -102,7 +102,7 @@ variable "name_cloudwatch_logs_to_ship" {
   type = list(string)
 }
 
-variable "lambda_function_name" {
+variable "lambda_function_suffix" {
   description = "Name of the Lambda function that transforms CloudWatch data for Kinesis Firehose into Splunk compatible format"
   default     = "kinesis-firehose-transform"
 }

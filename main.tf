@@ -202,7 +202,7 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_role_attachment" {
 # Create the lambda function
 # The lambda function to transform data from compressed format in Cloudwatch to something Splunk can handle (uncompressed)
 resource "aws_lambda_function" "firehose_lambda_transform" {
-  function_name    = var.lambda_function_name
+  function_name    = local.lambda_function_name
   description      = "Transform data from CloudWatch format to Splunk compatible format"
   filename         = data.archive_file.lambda_function.output_path
   role             = aws_iam_role.kinesis_firehose_lambda.arn
@@ -372,5 +372,6 @@ resource "aws_cloudwatch_log_subscription_filter" "cloudwatch_log_filter" {
 data "aws_caller_identity" "current" {}
 
 locals {
-  firehose_name = "${var.region}-${var.firehose_suffix}"
+  firehose_name = "shared-${var.region}-${var.firehose_suffix}"
+  lambda_function_name = "shared-${var.region}-${var.lambda_function_suffix}"
 }
