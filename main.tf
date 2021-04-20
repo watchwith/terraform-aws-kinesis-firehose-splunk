@@ -1,7 +1,7 @@
 # Kinesis firehose stream
 # Record Transformation Required, called "processing_configuration" in Terraform
 resource "aws_kinesis_firehose_delivery_stream" "kinesis_firehose" {
-  name        = "${var.region}-${var.firehose_name)"
+  name        = "${var.region}-${var.firehose_name}"
   destination = "splunk"
 
   s3_configuration {
