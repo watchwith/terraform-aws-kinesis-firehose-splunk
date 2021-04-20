@@ -88,17 +88,17 @@ resource "aws_cloudwatch_log_stream" "kinesis_logs" {
 }
 
 data "aws_ssm_parameter" "hec_token" {
-  name   = "/shared-${var.region}/splunk/${var.hec_token}"
+  name            = "/shared-${var.region}/splunk/${var.hec_token}"
   with_decryption = true
 }
 
 data "aws_ssm_parameter" "hec_endpoint_type" {
-  name   = "/shared-${var.region}/splunk/${var.hec_endpoint_type}"
+  name            = "/shared-${var.region}/splunk/${var.hec_endpoint_type}"
   with_decryption = true
 }
 
 data "aws_ssm_parameter" "hec_url" {
-  name = "/shared-${var.region}/splunk/${var.hec_url}"
+  name            = "/shared-${var.region}/splunk/${var.hec_url}"
   with_decryption = true
 }
 
@@ -128,7 +128,7 @@ POLICY
 
 data "aws_cloudwatch_log_group" "logs" {
   count = length(var.name_cloudwatch_logs_to_ship)
-  name = element(var.name_cloudwatch_logs_to_ship, count.index)
+  name  = element(var.name_cloudwatch_logs_to_ship, count.index)
 }
 
 data "aws_iam_policy_document" "lambda_policy_doc" {
@@ -207,7 +207,7 @@ resource "aws_lambda_function" "firehose_lambda_transform" {
   filename         = data.archive_file.lambda_function.output_path
   role             = aws_iam_role.kinesis_firehose_lambda.arn
   handler          = "kinesis-firehose-cloudwatch-logs-processor.handler"
-  memory_size = 160
+  memory_size      = 160
   source_code_hash = data.archive_file.lambda_function.output_base64sha256
   runtime          = var.runtime
   timeout          = var.lambda_function_timeout
@@ -305,7 +305,7 @@ resource "aws_iam_role" "cloudwatch_to_firehose_trust" {
   name        = "${var.cloudwatch_to_firehose_trust_iam_role_name}-${var.region}"
   description = "Role for CloudWatch Log Group subscription"
 
-  assume_role_policy = <<ROLE
+  assume_role_policy   = <<ROLE
 {
   "Statement": [
     {
@@ -361,7 +361,7 @@ resource "aws_iam_role_policy_attachment" "cloudwatch_to_fh" {
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "cloudwatch_log_filter" {
-  count = length(var.name_cloudwatch_logs_to_ship)
+  count           = length(var.name_cloudwatch_logs_to_ship)
   name            = "${element(var.name_cloudwatch_logs_to_ship, count.index)}-${var.cloudwatch_log_filter_name}"
   role_arn        = aws_iam_role.cloudwatch_to_firehose_trust.arn
   destination_arn = aws_kinesis_firehose_delivery_stream.kinesis_firehose.arn
@@ -372,6 +372,6 @@ resource "aws_cloudwatch_log_subscription_filter" "cloudwatch_log_filter" {
 data "aws_caller_identity" "current" {}
 
 locals {
-  firehose_name = "shared-${var.region}-${var.firehose_suffix}"
+  firehose_name        = "shared-${var.region}-${var.firehose_suffix}"
   lambda_function_name = "shared-${var.region}-${var.lambda_function_suffix}"
 }

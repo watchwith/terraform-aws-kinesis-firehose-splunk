@@ -4,12 +4,12 @@ variable "region" {
 
 variable "hec_url" {
   description = "Splunk Kinesis URL for submitting CloudWatch logs to splunk (SSM Path)"
-  default = "hec_url"
+  default     = "hec_url"
 }
 
 variable "hec_token" {
   description = "Splunk security token needed to submit data to Splunk (SSM Path)"
-  default = "hec_token"
+  default     = "hec_token"
 }
 
 variable "runtime" {
@@ -99,7 +99,7 @@ variable "kinesis_firehose_role_name" {
 
 variable "name_cloudwatch_logs_to_ship" {
   description = "name of the CloudWatch Log Group that you want to ship to Splunk."
-  type = list(string)
+  type        = list(string)
 }
 
 variable "lambda_function_suffix" {
@@ -139,7 +139,7 @@ variable "cloudwatch_log_filter_name" {
 
 variable "subscription_filter_pattern" {
   description = "Filter pattern for the CloudWatch Log Group subscription to the Kinesis Firehose. See [this](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/FilterAndPatternSyntax.html) for filter pattern info."
-  type = list(string)
+  type        = list(string)
   default     = [] # nothing is being filtered
 }
 
