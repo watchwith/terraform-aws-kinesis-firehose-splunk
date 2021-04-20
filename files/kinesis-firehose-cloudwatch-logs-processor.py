@@ -45,6 +45,7 @@ The code below will:
 
 """
 
+import os
 import base64
 import json
 import gzip
@@ -54,7 +55,7 @@ import logging
 import datetime
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(os.getenv('LOG_LEVEL', 'INFO'))
 
 
 def isgzip(stream):
