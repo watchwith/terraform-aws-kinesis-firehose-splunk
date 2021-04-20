@@ -45,6 +45,7 @@ The code below will:
 
 """
 
+import os
 import base64
 import json
 import gzip
@@ -54,7 +55,7 @@ import logging
 import datetime
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(os.getenv('LOG_LEVEL', 'INFO'))
 
 
 def isgzip(stream):
@@ -76,8 +77,26 @@ def transformLogEvent(log_event, owner, group, stream):
     log_event["owner"] = owner
     log_event["log_group"] = group
     log_event["log_stream"] = stream
+    log_event = addTimestamp(log_event)
+    log_event = addEventWrapper(log_event)
     return json.dumps(log_event) + "\n"
 
+
+def addTimestamp(event):
+    if "timestamp" not in event:
+        ts = {
+            "timestamp": datetime.datetime.utcnow()
+                .replace(tzinfo=datetime.timezone.utc)
+                .strftime("%Y-%m-%dT%X.%fZ")
+        }
+        ts.update(event)
+        event = ts
+    return event
+
+def addEventWrapper(event):
+    ev = {}
+    ev['event'] = event
+    return ev
 
 def processRecords(records):
     for r in records:
@@ -96,54 +115,49 @@ def processRecords(records):
         """
         try:
             data = json.loads(doc)
-            if "messageType" in data:
-                if data["messageType"] == "CONTROL_MESSAGE":
-                    yield {"result": "Dropped", "recordId": recId}
-                elif data["messageType"] == "DATA_MESSAGE":
-                    message = "".join(
-                        [
-                            transformLogEvent(
-                                e, data["owner"], data["logGroup"], data["logStream"]
-                            )
-                            for e in data["logEvents"]
-                        ]
-                    )
-                    message = base64.b64encode(message.encode("utf-8"))
-                    yield {"data": message, "result": "Ok", "recordId": recId}
-                else:
-                    yield {"result": "ProcessingFailed", "recordId": recId}
-            elif "container_id" in data and "log" in data:
-                logdata = json.loads(data["log"])
-                data.update(logdata)
-                del data["log"]
-                yield {
-                    "data": base64.b64encode((json.dumps(data) + "\n").encode("utf-8")),
-                    "result": "Ok",
-                    "recordId": recId,
-                }
-            else:
-                yield {
-                    "data": base64.b64encode((doc + "\n").encode("utf-8")),
-                    "result": "Ok",
-                    "recordId": recId,
-                }
-
         except json.decoder.JSONDecodeError:
             plaintext = {}
-            plaintext["timestamp"] = (
-                datetime.datetime.utcnow()
-                .replace(tzinfo=datetime.timezone.utc)
-                .isoformat()
-            )
+            plaintext = addTimestamp(plaintext)
             plaintext["message"] = doc
-            message = json.dumps(plaintext)
+            message = json.dumps(addEventWrapper(plaintext))
             logger.info("plaintext: " + message)
             yield {
                 "data": base64.b64encode((message + "\n").encode("utf-8")),
                 "result": "Ok",
                 "recordId": recId,
             }
-            pass
+            continue
+
+        if "messageType" in data:
+            if data["messageType"] == "CONTROL_MESSAGE":
+                yield {"result": "Dropped", "recordId": recId}
+            elif data["messageType"] == "DATA_MESSAGE":
+                message = "".join(
+                    [
+                        transformLogEvent(
+                            e, data["owner"], data["logGroup"], data["logStream"]
+                        )
+                        for e in data["logEvents"]
+                    ]
+                )
+                message = base64.b64encode(message.encode("utf-8"))
+                yield {"data": message, "result": "Ok", "recordId": recId}
+            else:
+                yield {"result": "ProcessingFailed", "recordId": recId}
+        elif "container_id" in data and "log" in data:
+            try:
+                logdata = json.loads(data["log"])
+                data.update(logdata)
+                del data["log"]
+            except json.decoder.JSONDecodeError:
+                pass
+            message = json.dumps(addEventWrapper(data)) + "\n"
+            message = base64.b64encode(message.encode("utf-8"))
+            yield {"data": message, "result": "Ok", "recordId": recId}
+        else:
+            message = json.dumps(addEventWrapper(data)) + "\n"
+            message = base64.b64encode(message.encode("utf-8"))
+            yield {"data": message, "result": "Ok", "recordId": recId}
 
 
 def putRecordsToFirehoseStream(streamName, records, client, attemptsMade, maxAttempts):
@@ -265,6 +279,7 @@ def handler(event, context):
     totalRecordsToBeReingested = 0
 
     for idx, rec in enumerate(records):
+        logger.debug("Record: %s" % (rec))
         if rec["result"] != "Ok":
             continue
         projectedSize += len(rec["data"]) + len(rec["recordId"])

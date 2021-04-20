@@ -44,7 +44,7 @@ variable "hec_acknowledgment_timeout" {
 
 variable "hec_endpoint_type" {
   description = "Splunk HEC endpoint type; `Raw` or `Event`"
-  default     = "Raw"
+  default     = "hec_endpoint_type"
 }
 
 variable "s3_backup_mode" {
