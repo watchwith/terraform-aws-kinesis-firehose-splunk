@@ -285,6 +285,7 @@ def handler(event, context):
         projectedSize += len(rec["data"]) + len(rec["recordId"])
         # 6000000 instead of 6291456 to leave ample headroom for the stuff we didn't account for
         if projectedSize > 6000000:
+            logger.debug("Projected size {} exceeded 6000000, adding to reingest".format(projectedSize))
             totalRecordsToBeReingested += 1
             recordsToReingest.append(
                 getReingestionRecord(isSas, dataByRecordId[rec["recordId"]])
@@ -294,11 +295,13 @@ def handler(event, context):
 
         # split out the record batches into multiple groups, 500 records at max per group
         if len(recordsToReingest) == 500:
+            logger.debug("Reingest batch at max, pushing to stream")
             putRecordBatches.append(recordsToReingest)
             recordsToReingest = []
 
     if len(recordsToReingest) > 0:
         # add the last batch
+        logger.debug("Reingest queue not empty, pushing {} records to stream".format(len(recordsToReingest)))
         putRecordBatches.append(recordsToReingest)
 
     # iterate and call putRecordBatch for each group
@@ -330,4 +333,5 @@ def handler(event, context):
     else:
         logger.info("No records to be reingested")
 
+    logger.debug("Returning {} records".format(len(records)))
     return {"records": records}
