@@ -115,8 +115,9 @@ def processRecords(records):
         else:
             doc = bytesiodata.read().decode("utf-8")
 
-        logger.info("Processing: " + doc)
         recId = r["recordId"]
+        logger.info("processing doc, recordId={} size={}".format(recId, len(doc)))
+        logger.debug("doc: " + doc)
         """
         CONTROL_MESSAGE are sent by CWL to check if the subscription is reachable.
         They do not contain actual data.
@@ -128,7 +129,8 @@ def processRecords(records):
             plaintext = addTimestamp(plaintext)
             plaintext["message"] = doc
             message = json.dumps(addEventWrapper(plaintext))
-            logger.info("plaintext: " + message)
+            logger.info("plaintext size={}".format(len(message)))
+            logger.debug("plaintext: " + message)
             yield {
                 "data": base64.b64encode((message + "\n").encode("utf-8")),
                 "result": "Ok",
