@@ -57,6 +57,8 @@ import datetime
 logger = logging.getLogger()
 logger.setLevel(os.getenv('LOG_LEVEL', 'INFO'))
 
+maxSize = os.getenv('MAXSIZE', 9000)
+
 
 def isgzip(stream):
     buf = stream.peek(3)
@@ -161,6 +163,7 @@ def processRecords(records):
 
 
 def putRecordsToFirehoseStream(streamName, records, client, attemptsMade, maxAttempts):
+    logger.debug("putRecordsToFirehoseStream: streamName={} cntOfRecords={} attemptsMade={} maxAttempts={}".format(streamName, len(records), attemptsMade, maxAttempts))
     failedRecords = []
     codes = []
     errMsg = ""
@@ -204,6 +207,7 @@ def putRecordsToFirehoseStream(streamName, records, client, attemptsMade, maxAtt
 
 
 def putRecordsToKinesisStream(streamName, records, client, attemptsMade, maxAttempts):
+    logger.debug("putRecordsToKinesisStream: streamName={} cntOfRecords={} attemptsMade={} maxAttempts={}".format(streamName, len(records), attemptsMade, maxAttempts))
     failedRecords = []
     codes = []
     errMsg = ""
@@ -283,9 +287,10 @@ def handler(event, context):
         if rec["result"] != "Ok":
             continue
         projectedSize += len(rec["data"]) + len(rec["recordId"])
+        # Original code set this to 6000000, see note below:
         # 6000000 instead of 6291456 to leave ample headroom for the stuff we didn't account for
-        if projectedSize > 6000000:
-            logger.debug("Projected size {} exceeded 6000000, adding to reingest".format(projectedSize))
+        if projectedSize > maxSize:
+            logger.debug("Projected size {} exceeded {}, adding to reingest".format(projectedSize, maxSize))
             totalRecordsToBeReingested += 1
             recordsToReingest.append(
                 getReingestionRecord(isSas, dataByRecordId[rec["recordId"]])
