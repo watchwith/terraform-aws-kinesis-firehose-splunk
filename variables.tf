@@ -112,6 +112,12 @@ variable "lambda_function_timeout" {
   default     = 180
 }
 
+variable "lambda_env_variables" {
+  type        = map(string)
+  default     = {}
+  description = "Environment variables for lambda function, MAXSIZE, LOG_LEVEL are optional"
+}
+
 variable "lambda_iam_policy_name" {
   description = "Name of the IAM policy that is attached to the IAM Role for the lambda transform function"
   default     = "CustomerManaged_Kinesis-Firehose-to-Splunk-Policy"

@@ -211,6 +211,9 @@ resource "aws_lambda_function" "firehose_lambda_transform" {
   source_code_hash = data.archive_file.lambda_function.output_base64sha256
   runtime          = var.runtime
   timeout          = var.lambda_function_timeout
+  environment {
+    variables = var.lambda_env_variables
+  }
 
   tags = var.tags
 }

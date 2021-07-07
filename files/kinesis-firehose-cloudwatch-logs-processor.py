@@ -55,9 +55,9 @@ import logging
 import datetime
 
 logger = logging.getLogger()
-logger.setLevel(os.getenv('LOG_LEVEL', 'INFO'))
+logger.setLevel(os.getenv("LOG_LEVEL", "INFO"))
 
-maxSize = os.getenv('MAXSIZE', 9000)
+maxSize = int(os.getenv("MAXSIZE", "9000"))
 
 
 def isgzip(stream):
@@ -88,17 +88,19 @@ def addTimestamp(event):
     if "timestamp" not in event:
         ts = {
             "timestamp": datetime.datetime.utcnow()
-                .replace(tzinfo=datetime.timezone.utc)
-                .strftime("%Y-%m-%dT%X.%fZ")
+            .replace(tzinfo=datetime.timezone.utc)
+            .strftime("%Y-%m-%dT%X.%fZ")
         }
         ts.update(event)
         event = ts
     return event
 
+
 def addEventWrapper(event):
     ev = {}
-    ev['event'] = event
+    ev["event"] = event
     return ev
+
 
 def processRecords(records):
     for r in records:
@@ -163,7 +165,11 @@ def processRecords(records):
 
 
 def putRecordsToFirehoseStream(streamName, records, client, attemptsMade, maxAttempts):
-    logger.debug("putRecordsToFirehoseStream: streamName={} cntOfRecords={} attemptsMade={} maxAttempts={}".format(streamName, len(records), attemptsMade, maxAttempts))
+    logger.debug(
+        "putRecordsToFirehoseStream: streamName={} cntOfRecords={} attemptsMade={} maxAttempts={}".format(
+            streamName, len(records), attemptsMade, maxAttempts
+        )
+    )
     failedRecords = []
     codes = []
     errMsg = ""
@@ -207,7 +213,11 @@ def putRecordsToFirehoseStream(streamName, records, client, attemptsMade, maxAtt
 
 
 def putRecordsToKinesisStream(streamName, records, client, attemptsMade, maxAttempts):
-    logger.debug("putRecordsToKinesisStream: streamName={} cntOfRecords={} attemptsMade={} maxAttempts={}".format(streamName, len(records), attemptsMade, maxAttempts))
+    logger.debug(
+        "putRecordsToKinesisStream: streamName={} cntOfRecords={} attemptsMade={} maxAttempts={}".format(
+            streamName, len(records), attemptsMade, maxAttempts
+        )
+    )
     failedRecords = []
     codes = []
     errMsg = ""
@@ -290,7 +300,11 @@ def handler(event, context):
         # Original code set this to 6000000, see note below:
         # 6000000 instead of 6291456 to leave ample headroom for the stuff we didn't account for
         if projectedSize > maxSize:
-            logger.debug("Projected size {} exceeded {}, adding to reingest".format(projectedSize, maxSize))
+            logger.debug(
+                "Projected size {} exceeded {}, adding to reingest".format(
+                    projectedSize, maxSize
+                )
+            )
             totalRecordsToBeReingested += 1
             recordsToReingest.append(
                 getReingestionRecord(isSas, dataByRecordId[rec["recordId"]])
@@ -306,7 +320,11 @@ def handler(event, context):
 
     if len(recordsToReingest) > 0:
         # add the last batch
-        logger.debug("Reingest queue not empty, pushing {} records to stream".format(len(recordsToReingest)))
+        logger.debug(
+            "Reingest queue not empty, pushing {} records to stream".format(
+                len(recordsToReingest)
+            )
+        )
         putRecordBatches.append(recordsToReingest)
 
     # iterate and call putRecordBatch for each group
