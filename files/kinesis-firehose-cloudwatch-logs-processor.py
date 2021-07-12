@@ -55,7 +55,13 @@ import logging
 import datetime
 
 logger = logging.getLogger()
-logger.setLevel(os.getenv('LOG_LEVEL', 'INFO'))
+logger.setLevel(os.getenv("LOG_LEVEL", "INFO"))
+logging.getLogger('boto3').setLevel(logging.CRITICAL)
+logging.getLogger('botocore').setLevel(logging.CRITICAL)
+logging.getLogger('s3transfer').setLevel(logging.CRITICAL)
+logging.getLogger('urllib3').setLevel(logging.CRITICAL)
+
+maxSize = int(os.getenv("MAXSIZE", "9900000"))
 
 
 def isgzip(stream):
@@ -86,17 +92,19 @@ def addTimestamp(event):
     if "timestamp" not in event:
         ts = {
             "timestamp": datetime.datetime.utcnow()
-                .replace(tzinfo=datetime.timezone.utc)
-                .strftime("%Y-%m-%dT%X.%fZ")
+            .replace(tzinfo=datetime.timezone.utc)
+            .strftime("%Y-%m-%dT%X.%fZ")
         }
         ts.update(event)
         event = ts
     return event
 
+
 def addEventWrapper(event):
     ev = {}
-    ev['event'] = event
+    ev["event"] = event
     return ev
+
 
 def processRecords(records):
     for r in records:
@@ -107,8 +115,9 @@ def processRecords(records):
         else:
             doc = bytesiodata.read().decode("utf-8")
 
-        logger.info("Processing: " + doc)
         recId = r["recordId"]
+        logger.info("processing doc, recordId={} size={}".format(recId, len(doc)))
+        logger.debug("doc: " + doc)
         """
         CONTROL_MESSAGE are sent by CWL to check if the subscription is reachable.
         They do not contain actual data.
@@ -120,7 +129,8 @@ def processRecords(records):
             plaintext = addTimestamp(plaintext)
             plaintext["message"] = doc
             message = json.dumps(addEventWrapper(plaintext))
-            logger.info("plaintext: " + message)
+            logger.info("plaintext size={}".format(len(message)))
+            logger.debug("plaintext: " + message)
             yield {
                 "data": base64.b64encode((message + "\n").encode("utf-8")),
                 "result": "Ok",
@@ -161,6 +171,11 @@ def processRecords(records):
 
 
 def putRecordsToFirehoseStream(streamName, records, client, attemptsMade, maxAttempts):
+    logger.debug(
+        "putRecordsToFirehoseStream: streamName={} cntOfRecords={} attemptsMade={} maxAttempts={}".format(
+            streamName, len(records), attemptsMade, maxAttempts
+        )
+    )
     failedRecords = []
     codes = []
     errMsg = ""
@@ -204,6 +219,11 @@ def putRecordsToFirehoseStream(streamName, records, client, attemptsMade, maxAtt
 
 
 def putRecordsToKinesisStream(streamName, records, client, attemptsMade, maxAttempts):
+    logger.debug(
+        "putRecordsToKinesisStream: streamName={} cntOfRecords={} attemptsMade={} maxAttempts={}".format(
+            streamName, len(records), attemptsMade, maxAttempts
+        )
+    )
     failedRecords = []
     codes = []
     errMsg = ""
@@ -283,8 +303,14 @@ def handler(event, context):
         if rec["result"] != "Ok":
             continue
         projectedSize += len(rec["data"]) + len(rec["recordId"])
+        # Original code set this to 6000000, see note below:
         # 6000000 instead of 6291456 to leave ample headroom for the stuff we didn't account for
-        if projectedSize > 6000000:
+        if projectedSize > maxSize:
+            logger.debug(
+                "Projected size {} exceeded {}, adding to reingest".format(
+                    projectedSize, maxSize
+                )
+            )
             totalRecordsToBeReingested += 1
             recordsToReingest.append(
                 getReingestionRecord(isSas, dataByRecordId[rec["recordId"]])
@@ -294,11 +320,17 @@ def handler(event, context):
 
         # split out the record batches into multiple groups, 500 records at max per group
         if len(recordsToReingest) == 500:
+            logger.debug("Reingest batch at max, pushing to stream")
             putRecordBatches.append(recordsToReingest)
             recordsToReingest = []
 
     if len(recordsToReingest) > 0:
         # add the last batch
+        logger.debug(
+            "Reingest queue not empty, pushing {} records to stream".format(
+                len(recordsToReingest)
+            )
+        )
         putRecordBatches.append(recordsToReingest)
 
     # iterate and call putRecordBatch for each group
@@ -330,4 +362,5 @@ def handler(event, context):
     else:
         logger.info("No records to be reingested")
 
+    logger.debug("Returning {} records".format(len(records)))
     return {"records": records}

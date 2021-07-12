@@ -2,6 +2,8 @@
 
 This module configures a Kinesis Firehose, sets up a subscription for a desired CloudWatch Log Group to the Firehose, and sends the log data to Splunk.  A Lambda function is required to transform the CloudWatch Log data from "CloudWatch compressed format" to a format compatible with Splunk.  This module takes care of configuring this Lambda function.
 
+This module is called by `terraform-admin`
+
 ## Usage Instructions
 
 In order to send this data to Splunk you will need to first obtain an HEC Token from your Splunk administrator.
@@ -20,6 +22,7 @@ module "kinesis_firehose" {
   hec_token = "<SSM Path>"
   hec_url = "<Splunk_Kinesis_ingest_URL>"
   s3_bucket_name = "<mybucketname>"
+  lambda_env_variables = {"MAXSIZE" = "9900000"}
 }
 
 ```
@@ -81,6 +84,7 @@ terraform init
 terraform plan -out terraform.tfplan -var region=us-west-2 -var s3_backup_mode=AllEvents \
                -var 'tags={"Environment":"us-west-2","git-repo":"terraform-aws-kinesis-firehose-splunk"}' \
                -var s3_bucket_name=ww-us-west-2-splunk-logs-backup \
-               -var 'name_cloudwatch_logs_to_ship=["/ww/dev/actions-api"]'
+               -var 'name_cloudwatch_logs_to_ship=["/ww/dev/actions-api"]' \
+               -var 'lambda_env_variables={"MAXSIZE":"9900000"}'
 terraform apply terraform.tfplan
 ```
