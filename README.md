@@ -22,7 +22,7 @@ module "kinesis_firehose" {
   hec_token = "<SSM Path>"
   hec_url = "<Splunk_Kinesis_ingest_URL>"
   s3_bucket_name = "<mybucketname>"
-  lambda_env_variables = {"MAXSIZE" = "9000"}
+  lambda_env_variables = {"MAXSIZE" = "9900000"}
 }
 
 ```
@@ -85,6 +85,6 @@ terraform plan -out terraform.tfplan -var region=us-west-2 -var s3_backup_mode=A
                -var 'tags={"Environment":"us-west-2","git-repo":"terraform-aws-kinesis-firehose-splunk"}' \
                -var s3_bucket_name=ww-us-west-2-splunk-logs-backup \
                -var 'name_cloudwatch_logs_to_ship=["/ww/dev/actions-api"]' \
-               -var 'lambda_env_variables={"MAXSIZE":"9000"}'
+               -var 'lambda_env_variables={"MAXSIZE":"9900000"}'
 terraform apply terraform.tfplan
 ```

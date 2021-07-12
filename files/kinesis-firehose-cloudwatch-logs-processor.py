@@ -61,7 +61,7 @@ logging.getLogger('botocore').setLevel(logging.CRITICAL)
 logging.getLogger('s3transfer').setLevel(logging.CRITICAL)
 logging.getLogger('urllib3').setLevel(logging.CRITICAL)
 
-maxSize = int(os.getenv("MAXSIZE", "9000"))
+maxSize = int(os.getenv("MAXSIZE", "9900000"))
 
 
 def isgzip(stream):
